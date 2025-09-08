@@ -179,3 +179,41 @@
       </div>
     </footer>
   </main>
+
+  <!-- MODAL: Details -->
+  <dialog id="plantModal" class="modal">
+    <form method="dialog" class="modal-box max-w-3xl">
+      <button class="btn btn-sm btn-ghost btn-circle absolute right-2 top-2" aria-label="close">✕</button>
+      <div id="modalContent" class="space-y-4">
+        <!-- populated by JS -->
+      </div>
+    </form>
+  </dialog>
+
+  <!-- tiny toast -->
+  <div id="toast" class="fixed bottom-6 right-6"></div>
+
+  <!-- SCRIPT: main app logic (vanilla JS) -->
+  <script>
+    // Basic DOM refs
+    const categoriesList = document.getElementById('categoriesList');
+    const plantsGrid = document.getElementById('plantsGrid');
+    const plantsSpinner = document.getElementById('plantsSpinner');
+    const catSpinner = document.getElementById('catSpinner');
+    const plantModal = document.getElementById('plantModal');
+    const modalContent = document.getElementById('modalContent');
+    const cartList = document.getElementById('cartList');
+    const cartTotal = document.getElementById('cartTotal');
+    const plantsCount = document.getElementById('plantsCount');
+    const toast = document.getElementById('toast');
+    const checkoutBtn = document.getElementById('checkoutBtn');
+
+    let categories = [];
+    let activeCategoryId = null;
+    let cart = [];
+
+    const API = {
+      categories: 'https://openapi.programming-hero.com/api/categories',
+      category: id => `https://openapi.programming-hero.com/api/category/${id}`,
+      plant: id => `https://openapi.programming-hero.com/api/plant/${id}`,
+    };

@@ -261,3 +261,194 @@
         cartList.appendChild(div);
       });
 
+      // attach remove handlers
+      cartList.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          cart = cart.filter(i => String(i.id) !== String(id));
+          renderCart();
+          calculateTotal();
+        });
+      });
+
+      calculateTotal();
+    }
+
+    // Add to cart helper
+    function addToCart(plant) {
+      const existing = cart.find(i => i.id === plant.id);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ id: plant.id, name: plant.name, price: plant.price, qty: 1, image: plant.image });
+      }
+      renderCart();
+      showToast(`${plant.name} added to cart`);
+    }
+
+    // FETCH categories
+    async function loadCategories() {
+      categoriesList.innerHTML = '<div class="center p-6"><div class="loading"></div></div>';
+      try {
+        const res = await fetch(API.categories);
+        const json = await res.json();
+        // The API returns categories.data maybe; handle format defensively
+        const data = (json && json.data) ? json.data : (json?.data?.data || json);
+        categories = data.slice ? data : [];
+      } catch (err) {
+        console.error('Category load failed', err);
+        categories = [];
+      }
+
+      // fallback if API structure unexpected or empty
+      if (!categories || categories.length === 0) {
+        categories = [
+          { id: 1, name: 'All' },
+          { id: 2, name: 'Fruit Trees' },
+          { id: 3, name: 'Forest Trees' },
+          { id: 4, name: 'Indoor' },
+        ];
+      }
+
+      renderCategories();
+    }
+
+    // Render category buttons
+    function renderCategories() {
+      categoriesList.innerHTML = '';
+      categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-ghost justify-start normal-case';
+        btn.textContent = cat.name;
+        btn.dataset.id = cat.id;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#categoriesList button').forEach(b => b.classList.remove('btn-primary'));
+          btn.classList.add('btn-primary');
+          activeCategoryId = cat.id;
+          loadPlantsForCategory(cat.id);
+        });
+        categoriesList.appendChild(btn);
+      });
+
+      // activate first
+      const first = categories[0];
+      if (first) {
+        document.querySelectorAll('#categoriesList button')[0].classList.add('btn-primary');
+        activeCategoryId = first.id;
+        loadPlantsForCategory(first.id);
+      }
+    }
+
+    // Load plants by category
+    async function loadPlantsForCategory(id) {
+      plantsGrid.innerHTML = '';
+      plantsSpinner.style.display = 'flex';
+      plantsCount.textContent = '';
+      try {
+        // If id is 'All' or similar, fetch default all plants endpoint
+        let url = (String(id) === '1') ? 'https://openapi.programming-hero.com/api/plants' : API.category(id);
+        // Some course APIs have a /category/1 returning its own format; handle gracefully
+        const res = await fetch(url);
+        const json = await res.json();
+        // detect plants list
+        let items = [];
+        if (json && json.data) {
+          // sometimes json.data.data contains list
+          items = Array.isArray(json.data) ? json.data : (Array.isArray(json.data.data) ? json.data.data : []);
+        } else if (json && json.plants) {
+          items = json.plants;
+        } else if (Array.isArray(json)) {
+          items = json;
+        }
+
+        // Fallback: if categories.id was 1 and API returns categories rather than plants, call all plants
+        if (items.length === 0 && url.includes('/categories')) {
+          const alt = await fetch('https://openapi.programming-hero.com/api/plants').then(r => r.json());
+          items = alt?.data || [];
+        }
+
+        // If still empty, create synthetic sample items
+        if (!items || items.length === 0) {
+          items = createSamplePlants();
+        }
+
+        // map to simplified shape and provide synthetic price
+        const plants = items.map((p, idx) => {
+          const id = p.id || p._id || p.plant_id || idx + '-' + (p.name || 'plant');
+          const name = p.name || p.common_name || p.title || 'Unknown Tree';
+          // choose image from p.image or default assets
+          const image = (p.image || p.images || p.thumbnail || p.img) ||
+                        (p.image_url) ||
+                        `assets/about.png`;
+          const description = p.description || p.details || p.short_description || 'A beautiful tree. Perfect for planting and helping the planet.';
+          const price = (p.price ? Number(p.price) : (10 + Math.floor(Math.random() * 40)));
+          return { id, name, image, description, price, raw: p };
+        });
+
+        renderPlants(plants);
+      } catch (err) {
+        console.error('Load plants error', err);
+        plantsGrid.innerHTML = '<div class="col-span-3 alert alert-error">Failed to fetch plants. Showing sample items.</div>';
+        renderPlants(createSamplePlants());
+      } finally {
+        plantsSpinner.style.display = 'none';
+      }
+    }
+
+    // Render plant cards
+    function renderPlants(plants) {
+      plantsGrid.innerHTML = '';
+      plantsCount.textContent = `${plants.length} items`;
+      plants.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card bg-base-100 shadow';
+        card.innerHTML = `
+          <figure class="overflow-hidden"><img src="${p.image}" alt="${p.name}" class="card-img" onerror="this.src='assets/about.png'"/></figure>
+          <div class="card-body p-4">
+            <h5 class="card-title text-md font-semibold"><a href="#" class="plant-name" data-id="${p.id}">${p.name}</a></h5>
+            <p class="text-sm text-gray-600 line-clamp-3">${p.description ? (p.description.substring(0,120) + (p.description.length>120?'...':'')) : ''}</p>
+            <div class="card-actions justify-between items-center mt-4">
+              <div class="font-bold">${formatPrice(p.price)}</div>
+              <div class="flex gap-2">
+                <button class="btn btn-outline btn-sm details-btn" data-id="${p.id}">Details</button>
+                <button class="btn btn-primary btn-sm add-btn" data-id="${p.id}">Add</button>
+              </div>
+            </div>
+          </div>
+        `;
+        plantsGrid.appendChild(card);
+
+        // attach handlers for details and add
+        card.querySelector('.details-btn').addEventListener('click', (e) => {
+          e.preventDefault();
+          openPlantModal(p);
+        });
+        card.querySelector('.add-btn').addEventListener('click', (e) => {
+          e.preventDefault();
+          addToCart(p);
+        });
+        card.querySelector('.plant-name').addEventListener('click', (e) => {
+          e.preventDefault();
+          openPlantModal(p);
+        });
+      });
+    }
+
+    // Open modal with full plant details
+    function openPlantModal(p) {
+      modalContent.innerHTML = `
+        <div class="grid md:grid-cols-3 gap-4 items-start">
+          <div class="md:col-span-1">
+            <img src="${p.image}" alt="${p.name}" class="rounded-lg w-full object-cover h-48" onerror="this.src='assets/about.png'"/>
+          </div>
+          <div class="md:col-span-2">
+            <h3 class="text-xl font-bold">${p.name}</h3>
+            <p class="mt-2 text-sm text-gray-700">${p.description || 'No description available.'}</p>
+            <div class="mt-4 flex gap-3">
+              <div class="font-bold text-lg">${formatPrice(p.price)}</div>
+              <button class="btn btn-primary" id="modalAdd">Add to Cart</button>
+            </div>
+          </div>
+        </div>
+      `;
+  

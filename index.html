@@ -451,4 +451,68 @@
           </div>
         </div>
       `;
-  
+      plantModal.showModal();
+      document.getElementById('modalAdd').addEventListener('click', () => {
+        addToCart(p);
+        plantModal.close();
+      });
+    }
+
+    // Provide some fallback/synthetic plants if API empty
+    function createSamplePlants() {
+      return [
+        { id: 's1', name: 'River Birch', image: 'assets/about.png', description: 'Fast-growing native tree good for riparian planting.', price: 18 },
+        { id: 's2', name: 'Mango Tree', image: 'assets/hero-leaf1.png', description: 'Produces sweet fruit and provides shade.', price: 28 },
+        { id: 's3', name: 'Neem', image: 'assets/hero-leaf2.png', description: 'Hardy tree used for medicine and shade.', price: 21 },
+      ];
+    }
+
+    // Plant form handling
+    document.getElementById('plantForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('donorName').value;
+      const email = document.getElementById('donorEmail').value;
+      const num = Number(document.getElementById('numTrees').value || 1);
+      showToast(`Thanks ${name}! Your request to plant ${num} tree(s) has been received. We will contact ${email}.`);
+      e.target.reset();
+      // scroll to top or show confirmation UI
+    });
+
+    // initialize year and load categories
+    document.getElementById('year').textContent = new Date().getFullYear();
+    loadCategories();
+
+    // handle checkout (simple)
+    checkoutBtn.addEventListener('click', () => {
+      if (cart.length === 0) return;
+      const names = cart.map(i => i.name + (i.qty>1 ? ` x${i.qty}` : '')).join(', ');
+      showToast(`Order placed: ${names}. Thank you!`);
+      // clear cart
+      cart = [];
+      renderCart();
+    });
+
+    // clicking Plant a Tree scrolls to form
+    document.getElementById('plantBtn').addEventListener('click', () => {
+      document.getElementById('plant-form').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // close modal when clicking close button (native <dialog> already provides close)
+    plantModal.addEventListener('click', (e) => {
+      // if clicking outside content close
+      const rect = plantModal.querySelector('.modal-box').getBoundingClientRect();
+      const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if (!inside) plantModal.close();
+    });
+
+    // basic accessibility: escape to close modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && plantModal.open) plantModal.close();
+    });
+
+    // initial empty cart render
+    renderCart();
+
+  </script>
+</body>
+</html>
